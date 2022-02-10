@@ -10,10 +10,10 @@ namespace Intcode_VM
 {
     internal class Program
     {
+        static List<int> program = new List<int>();
+
         static void Main(string[] args)
         {
-            List<int> program = new List<int>();
-
             using (StreamReader sr = new StreamReader(File.Open("./program.txt", FileMode.Open)))
             {
                 string input = sr.ReadToEnd();
@@ -24,6 +24,19 @@ namespace Intcode_VM
                 }
             }
 
+            Day5();
+            Console.ReadLine();
+        }
+
+        static void Day5()
+        {
+            VirtualMachine vm = new VirtualMachine(program.ToArray());
+
+            vm.Run();
+        }
+
+        static void Day2()
+        {
             VirtualMachine vm = null;
 
             for (int i = 0; i < 99; i++)
@@ -46,7 +59,6 @@ namespace Intcode_VM
             }
 
             Console.WriteLine((100 * vm.GetMemoryValue(1)) + vm.GetMemoryValue(2));
-            Console.ReadLine();
         }
     }
 }
