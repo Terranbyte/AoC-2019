@@ -10,11 +10,11 @@ namespace Day_4
     {
         static void Main(string[] args)
         {
-            Day2();
+            Part2();
             Console.ReadLine();
         }
 
-        static void Day1()
+        static void Part1()
         {
             int possiblePasswords = 0;
 
@@ -59,7 +59,7 @@ namespace Day_4
             Console.WriteLine(possiblePasswords);
         }
 
-        static void Day2()
+        static void Part2()
         {
             int possiblePasswords = 0;
 
