@@ -4,10 +4,10 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{1B93BFC9-D86F-4679-B243-9DD1C57A07E7}</ProjectGuid>
+    <ProjectGuid>{6D1400C3-07EA-4FF5-BB53-B206A9733909}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>Intcode_VM</RootNamespace>
-    <AssemblyName>Intcode VM</AssemblyName>
+    <RootNamespace>Day_8</RootNamespace>
+    <AssemblyName>Day 8</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -43,20 +43,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Extensions.cs" />
-    <Compile Include="Opcode.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="VirtualMachine.cs" />
-    <Compile Include="VMSettings.cs" />
+    <Compile Include="SIFImage.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="program.txt">
+    <None Include="image.sif">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -10,15 +10,35 @@ namespace Intcode_VM
 {
     public class VirtualMachine
     {
-        private int[] _program = null;
-        private int _pc = 0;
+        public event Func<long> OnInput;
+        public event Action<long> OnOutput;
+
+        public bool IsHalted = false;
+
+        private Queue<long> _outputQueue = new Queue<long>();
+        private long[] _program = null;
+        private long _pc = 0;
+        private long _relBase = 0;
         private bool _debugEnable = false;
+        private bool _autoInput = false;
+        private bool _noOutput = false;
+        private bool _asyncOutput = false;
         private StreamWriter _debug;
 
-        public VirtualMachine(int[] program, bool debugEnable = false)
+        [Obsolete("This constructor is obsolete, use the VMSettings variant")]
+        public VirtualMachine(long[] program, bool debugEnable = false)
         {
             _program = program;
             _debugEnable = debugEnable;
+        }
+
+        public VirtualMachine(long[] program, VMSettings settings)
+        {
+            _program = program;
+            _debugEnable = settings.HasFlag(VMSettings.DebugEnable);
+            _autoInput = settings.HasFlag(VMSettings.AutomaticInput);
+            _noOutput = settings.HasFlag(VMSettings.NoOutput);
+            _asyncOutput = settings.HasFlag(VMSettings.AsyncOutput);
         }
 
         public void Run()
@@ -38,6 +58,8 @@ namespace Intcode_VM
             if (!_debugEnable)
                 return;
 
+            IsHalted = true;
+
             _debug.WriteLine("\nMemory dump:");
             for (int i = 0; i < _program.Length; i++)
             {
@@ -45,6 +67,17 @@ namespace Intcode_VM
             }
 
             _debug.Dispose();
+        }
+
+        public async Task RunAsync()
+        {
+            await Task.Run(() => Run());
+        }
+
+        public void LoadProgram(long[] program)
+        {
+            _pc = 0;
+            _program = program;
         }
 
         public void DumpMemory(int from = 0)
@@ -63,9 +96,22 @@ namespace Intcode_VM
             }
         }
 
-        public int GetMemoryValue(int addr)
+        public long GetMemoryValue(int addr)
         {
             return _program[addr];
+        }
+
+        public async Task<long> GetOutputAsync()
+        {
+            if (!_asyncOutput)
+                throw new Exception("Trying to await output on syncronus machine");
+
+            while (_outputQueue.Count <= 0)
+            {
+                await Task.Delay(50);
+            }
+
+            return _outputQueue.Dequeue();
         }
 
         private bool RunInstruction(Opcode op)
@@ -73,53 +119,80 @@ namespace Intcode_VM
             switch (op.opcode)
             {
                 case 1: // Add
-                    _program[op.arg3.value] = ResolveParameter(op.arg1) + ResolveParameter(op.arg2);
+                    _program[ResolveParameter(op.arg3)] = ResolveParameter(op.arg1) + ResolveParameter(op.arg2);
                     _pc += 4;
 
                     //if (_debugEnable)
                     //    _debug.WriteLine($"Add: ${dest} = ${_program[_pc + 1]} (#{arg1}) + ${_program[_pc + 2]} (#{arg2}), res = #{_program[dest]}");
                     break;
                 case 2: // Mult
-                    _program[op.arg3.value] = ResolveParameter(op.arg1) * ResolveParameter(op.arg2);
+                    _program[ResolveParameter(op.arg3)] = ResolveParameter(op.arg1) * ResolveParameter(op.arg2);
                     _pc += 4;
 
                     //if (_debugEnable)
                     //    _debug.WriteLine($"Multiply: ${dest} = ${_program[_pc + 1]} (#{arg1}) * ${_program[_pc + 2]} (#{arg2}), res = #{_program[dest]}");
                     break;
                 case 3: // Input
-                    Console.Write("Input: ");
-                    _program[op.arg1.value] = Convert.ToInt32(Console.ReadLine()); 
+                    long input = 0;
+
+                    if (_autoInput)
+                    {
+                        input = OnInput.Invoke();
+                    }
+                    else
+                    {
+                        if (!_noOutput)
+                            Console.Write("Input: ");
+                        input = Convert.ToInt32(Console.ReadLine());
+                    }
+
+                    _program[op.arg1.value] = input;
                     _pc += 2;
                     break;
                 case 4: // Output
-                    Console.WriteLine(ResolveParameter(op.arg1));
+                    long output = ResolveParameter(op.arg1);
+
+                    if (!_noOutput)
+                        Console.WriteLine(output);
+                    
+                    if (_asyncOutput)
+                        _outputQueue.Enqueue(output);
+
+                    if (OnOutput != null)
+                        OnOutput.Invoke(output);
+
                     _pc += 2;
                     break;
-                case 5:
+                case 5: // Jump if true
                     _pc += 3;
 
                     if (ResolveParameter(op.arg1) != 0)
                         _pc = ResolveParameter(op.arg2);
                     break;
-                case 6:
+                case 6: // Jump if false
                     _pc += 3;
 
                     if (ResolveParameter(op.arg1) == 0)
                         _pc = ResolveParameter(op.arg2);
                     break;
-                case 7:
-                    _program[op.arg3.value] = Convert.ToInt32(ResolveParameter(op.arg1) < ResolveParameter(op.arg2));
+                case 7: // Less than
+                    _program[ResolveParameter(op.arg3)] = Convert.ToInt32(ResolveParameter(op.arg1) < ResolveParameter(op.arg2));
                     _pc += 4;
                     break;
-                case 8:
-                    _program[op.arg3.value] = Convert.ToInt32(ResolveParameter(op.arg1) == ResolveParameter(op.arg2));
+                case 8: // Equals
+                    _program[ResolveParameter(op.arg3)] = Convert.ToInt32(ResolveParameter(op.arg1) == ResolveParameter(op.arg2));
                     _pc += 4;
                     break;
-                case 99:
+                case 9: // Relative Base Offset
+                    _pc += 2;
+
+                    _relBase += ResolveParameter(op.arg1);
+                    break;
+                case 99: // Halt
                     //if (_debugEnable)
                     //    _debug.WriteLine("Halt");
                     break;
-                default:
+                default: // *fuck*
                     Exception e = new ArgumentOutOfRangeException($"Opcode \"{op.opcode}\" is not a valid opcode. Halting execution...");
                     //if (_debugEnable)
                     //    _debug.WriteLine(e);
@@ -131,20 +204,28 @@ namespace Intcode_VM
             return true;
         }
 
-        private int ResolveParameter(OpcodeParameter param)
+        private long ResolveParameter(OpcodeParameter param)
         {
             switch (param.mode)
             {
                 case ParameterMode.Address:
+                    if (_program.Length <= param.value)
+                        Array.Resize(ref _program, (int)param.value + 1);
+
                     return _program[param.value];
                 case ParameterMode.Immediate:
                     return param.value;
+                case ParameterMode.Relative:
+                    if (_program.Length < _relBase + param.value)
+                        Array.Resize(ref _program, (int)param.value + 1);
+
+                    return _program[_relBase + param.value];
                 default:
                     throw new ArgumentOutOfRangeException($"Parameter mode \"{param.mode}\" is not implemented/supported");
             }
         }
 
-        private Opcode DecodeOpcode(int pc)
+        private Opcode DecodeOpcode(long pc)
         {
             Opcode o = new Opcode();
 
@@ -159,7 +240,7 @@ namespace Intcode_VM
             }
             catch (IndexOutOfRangeException)
             {
-                Debug.WriteLine("Warning: couldn't read all instruction arguments, assuming EOF");
+                Console.Error.WriteLine("Warning: couldn't read all instruction arguments");
                 return o;
             }
             catch (Exception e)

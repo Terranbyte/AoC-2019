@@ -25,9 +25,9 @@ namespace Intcode_VM
     public struct OpcodeParameter
     {
         public ParameterMode mode;
-        public int value;
+        public long value;
 
-        public OpcodeParameter(ParameterMode mode, int value)
+        public OpcodeParameter(ParameterMode mode, long value)
         {
             this.mode = mode;
             this.value = value;
@@ -38,5 +38,6 @@ namespace Intcode_VM
     {
         Address = 0,
         Immediate = 1,
+        Relative = 2,
     }
 }

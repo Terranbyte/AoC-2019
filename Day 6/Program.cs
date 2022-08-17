@@ -31,6 +31,7 @@ namespace Day_6
             // Step 2: Go through orbits backwards and add all IDs until COM is reached
             for (int i = orbits.Count - 1; i >= 0; i--)
             {
+
                 Orbit current = orbits[i];
                 Orbit parent = orbits.Find(x => x.id == current.directOrbit);
 
@@ -64,7 +65,24 @@ namespace Day_6
 
         static void Part2()
         {
-            SearchPath();
+            /*
+             * The theory:
+             * 
+             * Beacuse every planet originates from the same root planet (COM) they will always cross paths at some point
+             * 
+             * 
+             * 
+             * The algorithm:
+             * 
+             * 1. Create paths YOU->COM and SAN->COM
+             * 2. Find the first intersection of the paths (first planet that shares an ID)
+             * 3. Splice together YOU->COM and SAN->COM at the intersection to create the path YOU->SAN
+             * 4. The answer is the length of the path (-2 if including YOU and SAN)
+             */
+
+            List<string> path = SearchPath().Distinct().ToList();
+
+            Console.WriteLine("Minimum transfers needed to reach santa: " + (path.Count - 3));
         }
 
         static List<string> SearchPath()
@@ -74,33 +92,38 @@ namespace Day_6
             HashSet<string> YOUToCOM = new HashSet<string>();
 
             Orbit current = orbits.Find(x => x.id == "SAN");
-            Orbit parent = orbits.Find(x => x.id == current.directOrbit);
 
-            // Find path from SAN to COM
-            while (parent != null && parent.id != "COM")
+            // Create path from SAN to COM
+            while (current != null && current.id != "COM")
             {
-                SANToCOM.Add(parent.id);
-                parent = orbits.Find(x => x.id == parent.directOrbit);
+                SANToCOM.Add(current.id);
+                current = orbits.Find(x => x.id == current.directOrbit);
             }
 
             current = orbits.Find(x => x.id == "YOU");
-            parent = orbits.Find(x => x.id == current.directOrbit);
 
-            // Find path from YOU to COM
-            while (parent != null && parent.id != "COM")
+            // Create path from YOU to COM
+            while (current != null && current.id != "COM")
             {
-                YOUToCOM.Add(parent.id);
-                parent = orbits.Find(x => x.id == parent.directOrbit);
+                YOUToCOM.Add(current.id);
+                current = orbits.Find(x => x.id == current.directOrbit);
             }
 
-            List<string> temp = SANToCOM.ToList();
+            List<string> temp = YOUToCOM.ToList();
             // Find where both paths intersect and merge them
-            for (int i = 0; i < temp.Count; i++)
+            for (int i = 1; i < temp.Count; i++)
             {
-                if (YOUToCOM.Contains(temp[i]))
+                if (SANToCOM.Contains(temp[i]))
                 {
-                    // Todo: Splice together the two paths
-                    Console.WriteLine($"Found intersecting path at {temp[i]}");
+                    Console.WriteLine($"Found intersecting path at {temp[i]} ({i})");
+
+
+
+                    Console.WriteLine("Splicing paths together");
+
+                    path.AddRange(temp.Where(s => temp.IndexOf(s) < i));
+                    path.AddRange(SANToCOM.Where(s => YOUToCOM.ToList().IndexOf(s) <= i).Reverse());
+
                     return path;
                 }
             }
